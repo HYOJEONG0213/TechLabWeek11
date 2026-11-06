@@ -19,6 +19,14 @@ struct FBoneAnimationTrack {
 	FRawAnimSequenceTrack InternalTrack;
 };
 
+struct FRawAnimationData {
+	TArray <FBoneAnimationTrack> BoneAnimationTracks;
+	float FrameRate = 30.0f;
+	int32 NumberOfKeys = 0;
+	int32 NumberOfFrames = 0;
+	float PlayLength = 0.0f;
+};
+
 struct FAnimNotifyEvent {
 	float TriggerTime;
 	float Duration;

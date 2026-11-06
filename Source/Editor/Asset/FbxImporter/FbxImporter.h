@@ -4,6 +4,7 @@
 #include "Core/EngineString.h"
 #include "Render/SkeletalMeshData.h"
 #include "Asset/FbxImporter/FbxMeshBake.h"
+#include <Animation/AnimTypes.h>
 
 struct FFbxImportResult
 {
@@ -45,6 +46,7 @@ public:
 	void BuildStaticMesh(FStaticMeshData& OutData) const;
 	// ReadMeshData 성공 후 호출한다. Bone 계층/Bind와 rigid의 Bind 기준 Geometry를 만들며 Weight는 만들지 않는다.
 	bool ReadSkeletonData(TArray<FString>& OutWarnings, FString& OutError);
+	bool ReadAnimation(TArray<FString>& OutWarnings, FRawAnimationData &Out, FString& OutError);
 	// 다음 Skeleton/Mesh 재추출, Open/Close/소멸 전까지만 유효하다.
 	const TArray<FBoneInfo>& GetBones() const { return Bones; }
 	// ReadSkeletonData 성공 후 호출한다. SDK 수명과 독립적인 Geometry/Weight/Bone 출력을 만든다.

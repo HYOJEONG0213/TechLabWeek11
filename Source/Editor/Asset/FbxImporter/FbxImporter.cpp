@@ -788,6 +788,54 @@ bool FFbxImporter::ReadSkeletonData(TArray<FString>& OutWarnings, FString& OutEr
 	return true;
 }
 
+bool FFbxImporter::ReadAnimation(TArray<FString>& OutWarnings, FRawAnimationData& Out, FString& OutError)
+{
+	int32 Count = Scene->GetSrcObjectCount <FbxAnimStack>();
+	if (Count == 0) {
+		OutWarnings.Add("FBX: no animation object");
+		return true;
+	}
+	else if (Count >= 2) {
+		OutWarnings.Add("FBX: multiple animation stack");
+	}
+
+	FbxAnimStack * AnimStack = Scene->GetSrcObject<FbxAnimStack>(0);
+	if (AnimStack == nullptr) {
+		OutError = "FBX: no anim stack";
+		return false;
+	}
+
+	Scene->SetCurrentAnimationStack(AnimStack);
+	int32 LayerCount = AnimStack->GetMemberCount <FbxAnimLayer>();
+	if (LayerCount >= 2) {
+		OutWarnings.Add("FBX: multiple layer");
+	}
+
+	HTR_LOG(Info, "Anim Name: {}", AnimStack->GetName());
+	
+	FbxTimeSpan Span = AnimStack->GetLocalTimeSpan();
+	FbxTime Start = Span.GetStart();
+	FbxTime Stop = Span.GetStop();
+	FbxTime Duration = Span.GetDuration();
+
+	double Length = Duration.GetSecondDouble();
+
+	Out.FrameRate = 30.0f;
+	Out.NumberOfFrames = static_cast<int32>(round(Length * 30));
+	Out.NumberOfKeys = Out.NumberOfFrames + 1;
+	if (Out.NumberOfFrames < 2) {
+		OutError = "FBX: animation too short";
+		return false;
+	}
+
+	Out.PlayLength = Out.NumberOfFrames / 30.0f;
+
+	HTR_LOG(Info, "TimeSpan: {} ~ {}", Start.GetSecondDouble(), Stop.GetSecondDouble());
+	HTR_LOG(Info, "Frames: {}, Keys: {}, PlayLength: {}", Out.NumberOfFrames, Out.NumberOfKeys, Out.PlayLength);
+
+	return true;
+}
+
 // Node별 Geometry와 Weight를 같은 정점 순서로 합친 뒤, SDK 포인터 없는 엔진 자료를 반환한다.
 bool FFbxImporter::BuildSkeletalMesh(FSkeletalMeshData& OutData, TArray<FString>& OutWarnings, FString& OutError) const
 {
@@ -1009,6 +1057,10 @@ bool FFbxImporter::ImportToAssets(const FString& Path, EFbxImportMode Mode, FFbx
 		{
 			if (!Importer.ReadSkeletonData(Warnings, OutError)) { OutResult.Warnings.Append(Warnings); return false; }
 			OutResult.Warnings.Append(Warnings);
+			FRawAnimationData AnimData;
+			if (!Importer.ReadAnimation(Warnings, AnimData, OutError)) { OutResult.Warnings.Append(Warnings); return false; }
+			OutResult.Warnings.Append(Warnings);
+			
 			FFbxBakedMesh Skeletal;
 			Skeletal.Kind = EFbxMeshKind::Skeletal;
 			if (!Importer.BuildSkeletalMesh(Skeletal.SkeletalMesh, Warnings, OutError)) { OutResult.Warnings.Append(Warnings); return false; }

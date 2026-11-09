@@ -799,21 +799,59 @@ bool FFbxImporter::ReadAnimation(TArray<FString>& OutWarnings, FRawAnimationData
 		OutWarnings.Add("FBX: multiple animation stack");
 	}
 
-	FbxAnimStack * AnimStack = Scene->GetSrcObject<FbxAnimStack>(0);
-	if (AnimStack == nullptr) {
-		OutError = "FBX: no anim stack";
+	if (BoneIndices.Num() == 0) {
+		OutError = "FBX: no BoneIndices";
 		return false;
 	}
 
-	Scene->SetCurrentAnimationStack(AnimStack);
-	int32 LayerCount = AnimStack->GetMemberCount <FbxAnimLayer>();
-	if (LayerCount >= 2) {
-		OutWarnings.Add("FBX: multiple layer");
+	FbxAnimStack* FoundStack = nullptr;
+	FbxAnimLayer* FoundLayer = nullptr;
+	int32 FoundCount = 0;
+
+	for (int32 i = 0; i < Count; i++) {
+		FbxAnimStack* Stack = Scene->GetSrcObject<FbxAnimStack>(i);
+		int32 LayerCount = Stack->GetMemberCount <FbxAnimLayer>();
+
+		for (int32 j = 0; j < LayerCount; j++) {
+			FbxAnimLayer* Layer = Stack->GetMember<FbxAnimLayer>(j);
+
+			int32 AnimCount = 0;
+			for (const auto& Pair : BoneIndices) {
+				FbxNode* Node = Pair.first;
+				int32 NodeIndex = Pair.second;
+
+				FbxAnimCurveNode* CurveTranslation = Node->LclTranslation.GetCurveNode(Layer);
+				FbxAnimCurveNode* CurveRotation = Node->LclRotation.GetCurveNode(Layer);
+				FbxAnimCurveNode* CurveScaling = Node->LclScaling.GetCurveNode(Layer);
+
+				if (CurveTranslation == nullptr && CurveRotation == nullptr && CurveScaling == nullptr) continue;
+				AnimCount++;
+
+			}
+
+			if (AnimCount > 0) {
+				FoundStack = Stack;
+				FoundLayer = Layer;
+				FoundCount = AnimCount;
+				break;
+			}
+		}
+
+		if (FoundStack != nullptr) break;
+
+	}
+	
+
+	if (FoundStack == nullptr) {
+		OutWarnings.Add("FBX : no animated bones");
+		return true;
 	}
 
-	HTR_LOG(Info, "Anim Name: {}", AnimStack->GetName());
+	Scene->SetCurrentAnimationStack(FoundStack);
+
+	HTR_LOG(Info, "Anim Name: {}", FoundStack->GetName());
 	
-	FbxTimeSpan Span = AnimStack->GetLocalTimeSpan();
+	FbxTimeSpan Span = FoundStack->GetLocalTimeSpan();
 	FbxTime Start = Span.GetStart();
 	FbxTime Stop = Span.GetStop();
 	FbxTime Duration = Span.GetDuration();
@@ -832,6 +870,10 @@ bool FFbxImporter::ReadAnimation(TArray<FString>& OutWarnings, FRawAnimationData
 
 	HTR_LOG(Info, "TimeSpan: {} ~ {}", Start.GetSecondDouble(), Stop.GetSecondDouble());
 	HTR_LOG(Info, "Frames: {}, Keys: {}, PlayLength: {}", Out.NumberOfFrames, Out.NumberOfKeys, Out.PlayLength);
+
+
+
+	HTR_LOG(Info, "Bones: {}, BoneIndices: {}, Animated: {}", Bones.Num(), BoneIndices.Num(), FoundCount);
 
 	return true;
 }

@@ -1145,6 +1145,9 @@ bool FFbxImporter::ImportToAssets(const FString& Path, EFbxImportMode Mode, FFbx
 			Skeletal.Kind = EFbxMeshKind::Skeletal;
 			if (!Importer.BuildSkeletalMesh(Skeletal.SkeletalMesh, Warnings, OutError)) { OutResult.Warnings.Append(Warnings); return false; }
 			OutResult.Warnings.Append(Warnings);
+
+			Skeletal.SkeletalMesh.Animation = std::move(AnimData);
+
 			Outputs.Add(std::move(Skeletal));
 		}
 		FFbxBakedMesh Static;

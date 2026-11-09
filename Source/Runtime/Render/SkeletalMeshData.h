@@ -4,6 +4,7 @@
 #include "Math/Box.h"
 #include "Math/Transform.h"
 #include <Containers/Array.h>
+#include <Animation/AnimTypes.h>
 
 
 struct FSkeletalMeshSection
@@ -48,6 +49,7 @@ struct FSkeletalMeshData
 	TArray<FBoneInfo> Bones;
 	FBox BindAABB;
 	FString SourcePath;
+	FRawAnimationData Animation;
 
 	bool Validate(FString& OutError) const;
 };

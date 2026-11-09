@@ -9,7 +9,7 @@ namespace
 {
 	constexpr uint32 Magic = 0x58424648; // HFBX, little endian
 	// 장면 전체의 축 변환으로 Bone Local 축과 Bind 행렬 표현이 달라져 기존 출력은 다시 굽는다.
-	constexpr uint32 Version = 4;
+	constexpr uint32 Version = 5;
 	static_assert(sizeof(FVertex) == 64 && sizeof(FSkinWeight) == 20);
 	// 기존 Binary의 Section 배열을 그대로 읽도록 두 타입의 바이트 배치를 고정한다.
 	static_assert(std::is_trivially_copyable_v<FSkeletalMeshSection> && std::is_standard_layout_v<FSkeletalMeshSection>);
@@ -122,6 +122,22 @@ namespace
 			for (auto& B : D.SkeletalMesh.Bones)
 				if (!In.String(B.Name) || !In.Pod(B.ParentIndex) || !In.Pod(B.LocalBindPose.Location) || !In.Pod(B.LocalBindPose.Rotation) || !In.Pod(B.LocalBindPose.Scale) || !In.Pod(B.InverseBindPose.M)) return false;
 			D.SkeletalMesh.SourcePath = D.Source.Path;
+
+			auto& A = D.SkeletalMesh.Animation;
+			uint32 TrackCount;
+
+			if (!In.Pod(A.FrameRate) || !In.Pod(A.NumberOfKeys) || !In.Pod(A.NumberOfFrames)
+				|| !In.Pod(A.PlayLength) || !In.Count(TrackCount, 1)) return false;
+
+			A.BoneAnimationTracks.SetNum(TrackCount);
+			for (auto& T : A.BoneAnimationTracks)
+			{
+				FString Name;
+				if (!In.String(Name)) return false;
+				T.Name = FName(Name);
+				if (!In.Array(T.InternalTrack.PosKeys) || !In.Array(T.InternalTrack.RotKeys)
+					|| !In.Array(T.InternalTrack.ScaleKeys)) return false;
+			}
 		}
 		return In.Remaining == 0;
 	}
@@ -219,7 +235,24 @@ bool FFbxMeshBake::Write(const FString& Path, const FFbxBakedMesh& D, FString& O
 		{
 			Out.String(B.Name); Out.Pod(B.ParentIndex); Out.Pod(B.LocalBindPose.Location); Out.Pod(B.LocalBindPose.Rotation); Out.Pod(B.LocalBindPose.Scale); Out.Pod(B.InverseBindPose.M);
 		}
+
+		const auto& A = D.SkeletalMesh.Animation;
+
+		Out.Pod(A.FrameRate);
+		Out.Pod(A.NumberOfKeys);
+		Out.Pod(A.NumberOfFrames);
+		Out.Pod(A.PlayLength);
+		Out.Pod(static_cast<uint32>(A.BoneAnimationTracks.Num()));
+
+		for (const auto& T : A.BoneAnimationTracks)
+		{
+			Out.String(T.Name.ToString());
+			Out.Array(T.InternalTrack.PosKeys);
+			Out.Array(T.InternalTrack.RotKeys);
+			Out.Array(T.InternalTrack.ScaleKeys);
+		}
 	}
+
 	Out.Stream.flush();
 	Out.Stream.close();
 	if (!Out.Stream) { OutError = "FBX binary: write failed: " + Path; return false; }

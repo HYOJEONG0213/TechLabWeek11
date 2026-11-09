@@ -826,7 +826,6 @@ bool FFbxImporter::ReadAnimation(TArray<FString>& OutWarnings, FRawAnimationData
 
 				if (CurveTranslation == nullptr && CurveRotation == nullptr && CurveScaling == nullptr) continue;
 				AnimCount++;
-
 			}
 
 			if (AnimCount > 0) {
@@ -838,7 +837,6 @@ bool FFbxImporter::ReadAnimation(TArray<FString>& OutWarnings, FRawAnimationData
 		}
 
 		if (FoundStack != nullptr) break;
-
 	}
 	
 
@@ -871,9 +869,49 @@ bool FFbxImporter::ReadAnimation(TArray<FString>& OutWarnings, FRawAnimationData
 	HTR_LOG(Info, "TimeSpan: {} ~ {}", Start.GetSecondDouble(), Stop.GetSecondDouble());
 	HTR_LOG(Info, "Frames: {}, Keys: {}, PlayLength: {}", Out.NumberOfFrames, Out.NumberOfKeys, Out.PlayLength);
 
+	Out.BoneAnimationTracks.Reserve(FoundCount);
+	for (const auto& Pair : BoneIndices) {
+		FbxNode* Node = Pair.first;
+		int32 NodeIndex = Pair.second;
 
+		FbxAnimCurveNode* CurveTranslation = Node->LclTranslation.GetCurveNode(FoundLayer);
+		FbxAnimCurveNode* CurveRotation = Node->LclRotation.GetCurveNode(FoundLayer);
+		FbxAnimCurveNode* CurveScaling = Node->LclScaling.GetCurveNode(FoundLayer);
+
+		if (CurveTranslation == nullptr && CurveRotation == nullptr && CurveScaling == nullptr) continue;
+
+		FBoneAnimationTrack Track;
+		Track.Name = FName(Node->GetName());
+
+		Track.InternalTrack.PosKeys.Reserve(Out.NumberOfKeys);
+		Track.InternalTrack.RotKeys.Reserve(Out.NumberOfKeys);
+		Track.InternalTrack.ScaleKeys.Reserve(Out.NumberOfKeys);
+
+		for (int32 n = 0; n < Out.NumberOfKeys; n++) {
+			FbxTime Sample;
+			Sample.SetFrame(n, FbxTime::eFrames30);
+			Sample = Start + Sample;
+
+			FbxAMatrix Matrix;
+			if(Bones[NodeIndex].ParentIndex < 0)
+				Matrix = Node->EvaluateGlobalTransform(Sample);
+			else
+				Matrix = Node->EvaluateLocalTransform(Sample);
+
+			FbxVector4 T = Matrix.GetT();
+			FbxQuaternion Q = Matrix.GetQ();
+			FbxVector4 S = Matrix.GetS();
+
+			Track.InternalTrack.PosKeys.Add(FVector(T[0], T[1], T[2]));
+			Track.InternalTrack.RotKeys.Add(FQuat(Q[0], Q[1], Q[2], Q[3]));
+			Track.InternalTrack.ScaleKeys.Add(FVector(S[0], S[1], S[2]));
+		}
+
+		Out.BoneAnimationTracks.Add(Track);
+	}
 
 	HTR_LOG(Info, "Bones: {}, BoneIndices: {}, Animated: {}", Bones.Num(), BoneIndices.Num(), FoundCount);
+	HTR_LOG(Info, "Out.BoneAnimationTracks.Num() : {} ", Out.BoneAnimationTracks.Num());
 
 	return true;
 }

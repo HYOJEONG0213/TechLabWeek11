@@ -9,6 +9,8 @@ class USkeletalMeshComponent : public USkinnedMeshComponent
 	GENERATED_BODY()
 
 public:
+	virtual void TickComponent(float DeltaTime) override;
+
 	const TArray<FBoneInfo>& GetBones() const;
 	int32 FindBoneIndex(const FString& Name) const;
 	FTransform GetBoneLocalTransform(int32 BoneIndex) const;
@@ -27,5 +29,5 @@ protected:
 
 private:
 	TArray<FTransform> BoneSpaceTransforms;
-
+	float AnimTime = 0.0f;
 };

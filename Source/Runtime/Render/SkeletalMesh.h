@@ -47,6 +47,8 @@ public:
 
 	TSharedPtr<const FMeshRenderState> GetRenderState(const TArray<UMaterial*>& Materials);
 
+	const FRawAnimationData& GetAnimation() const { return Animation; }
+
 private:
 	struct FMaterialSlotsHash
 	{
@@ -59,4 +61,6 @@ private:
 	FSkeletalMeshRenderData RenderData;
 	// UStaticMesh와 같은 캐시: 같은 머티리얼 조합의 컴포넌트끼리 섹션 목록 공유
 	TMap<TArray<UMaterial*>, TWeakPtr<const FMeshRenderState>, FMaterialSlotsHash> RenderStates;
+
+	FRawAnimationData Animation;
 };

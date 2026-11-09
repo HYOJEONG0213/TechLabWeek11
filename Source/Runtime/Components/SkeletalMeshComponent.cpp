@@ -2,6 +2,43 @@
 #include "SkeletalMeshComponent.h"
 #include "Serialization/MathSerialization.h"
 
+void USkeletalMeshComponent::TickComponent(float DeltaTime)
+{
+    Super::TickComponent(DeltaTime);
+
+    // 데이터 꺼내기
+    USkeletalMesh* Mesh = GetSkeletalMesh();
+    if (!Mesh) return;
+
+    const FRawAnimationData& AnimData = Mesh->GetAnimation();
+    if (AnimData.NumberOfKeys < 2 || AnimData.PlayLength <= 0.0f) return;
+
+    // 시간 흘리기
+    AnimTime = fmod(AnimTime + DeltaTime, AnimData.PlayLength);
+
+    // 프레임 번호 구하기
+    int32 FrameIdx = (int32)(AnimTime * AnimData.FrameRate);
+    if (FrameIdx >= AnimData.NumberOfKeys) FrameIdx = AnimData.NumberOfKeys - 1;
+
+    // 트랙마다 본에 꽂기
+    for (const FBoneAnimationTrack& Track : AnimData.BoneAnimationTracks) {
+        int32 BoneIdx = FindBoneIndex(Track.Name.ToString());
+        if (BoneIdx < 0) continue;
+
+        const FRawAnimSequenceTrack& AnimTrack = Track.InternalTrack;
+        if (AnimTrack.PosKeys.Num() <= FrameIdx || AnimTrack.RotKeys.Num() <= FrameIdx
+            || AnimTrack.ScaleKeys.Num() <= FrameIdx) continue;
+
+        FTransform transform;
+        transform.Location = AnimTrack.PosKeys[FrameIdx];
+        transform.Scale = AnimTrack.ScaleKeys[FrameIdx];
+        transform.Rotation = MatrixToRotator(AnimTrack.RotKeys[FrameIdx].ToFMatrix());
+        SetBoneLocalTransform(BoneIdx, transform);
+    }
+
+    RefreshBoneTransformsNow();
+}
+
 const TArray<FBoneInfo>& USkeletalMeshComponent::GetBones() const
 {
     static const TArray<FBoneInfo> Empty{};

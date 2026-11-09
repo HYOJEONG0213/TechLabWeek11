@@ -103,6 +103,7 @@ bool USkeletalMesh::Build(FSkeletalMeshData&& ImportData, FString& OutError)
 	LOD.BoneBounds = BuildBoneBounds(LOD, ImportData.Bones.Num());
 
 	RefSkeleton = std::move(ImportData.Bones);
+	Animation = std::move(ImportData.Animation);
 	MaterialSlots = std::move(ImportData.MaterialSlots);
 	Materials = std::move(NewMaterials);
 	RenderData.LODRenderData.Empty();
